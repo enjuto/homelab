@@ -1,8 +1,9 @@
-module "dns_public" {
-  source                    = "../../modules/dns_public"
-  domain                    = var.domain
-  services                  = var.services
-  environment               = var.environment
+module "secrets" {
+  source                      = "../../modules/vault"
+  env                         = var.environment
+  serv                        = var.services
+  postgres_user               = var.postgres_users
+  #domain                    = var.domain
   #APP_NAME                  = var.APP_NAME
   #ENV                       = var.ENV
   #AWS_REGION                = var.AWS_REGION
