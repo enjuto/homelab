@@ -1,6 +1,6 @@
 module "secrets" {
   source                      = "../../modules/vault"
-  env                         = var.environment
+  env                         = var.environments
   serv                        = var.services
   postgres_user               = var.postgres_users
   #domain                    = var.domain
@@ -15,4 +15,11 @@ module "secrets" {
   #WEB_ADMIN_RECORD_ADDRESS  = module.storage.web-admin-website-domain
   #WEB_ADMIN_HOSTED_ZONE     = module.storage.web-admin-hosted-zone
   #DOMAIN                    = var.DOMAIN
+}
+
+module "databases" {
+  source                      = "../../modules/databases"
+  postgres_services           = var.postgres_users
+  ENVIRONMENT                 = var.ENVIRONMENT
+  #depends_on = [module.secrets]
 }
