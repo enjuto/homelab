@@ -1,6 +1,20 @@
-# To generate random passwords
-resource "random_password" "password" {
+# Create admin policy to nomad
+resource "vault_policy" "vault_admin" {  
+  name   = "vault_admin"
+  policy = file("${path.module}/vault_admin_policy.hcl")
+}
+
+# To generate random passwords for services
+resource "random_password" "password_service" {
   for_each = var.serv
+  length           = 8
+  special          = false
+  #override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+# To generate random passwords for postgres user
+resource "random_password" "password_postgres" {
+  for_each = var.postgres_user
   length           = 8
   special          = false
   #override_special = "!#$%&*()-_=+[]{}<>:?"
@@ -33,30 +47,34 @@ locals {
       }
     ]
   ]))
-
 }
-
+#
 # Create service secrets by environment
 resource "vault_kv_secret_v2" "service_secrets_write" {
   for_each = { for i, k in local.service_secrets : i => k }
   mount = each.value.environment
   name = "${each.value.services["name"]}"
   data_json = jsonencode({
-    username = "${each.value.services["user"]}"
+    name = "${each.value.services["name"]}"
+    password  = random_password.password_service["${each.value.services["name"]}"].result
+    #If we want to pass the password as variable
     #password = "${each.value.services["password"]}"
-    password  = random_password.password["${each.value.services["name"]}"].result
   })
   depends_on = [vault_mount.secrets_engine]
 }
 
-# Create postgres database secrets by environment
+
+# Store user and credentials by environment to access a postgres database
 resource "vault_kv_secret_v2" "postgres_secrets_write" {
   for_each = { for i, k in local.postgres_secrets : i => k }
   mount       = each.value.environment
-  name        = "database/${each.value.postgres_users["name"]}"
+  name        = "postgres_users/${each.value.postgres_users["name"]}"
   data_json   = jsonencode({
-    username  = "${each.value.postgres_users["user"]}"
-    password  = "${each.value.postgres_users["password"]}"
+    name  = "${each.value.postgres_users["name"]}"
+    #password  = "${each.value.postgres_users["password"]}"
+    #password   = random_password.password["${each.key}"].result
+    password   = random_password.password_postgres["${each.value.postgres_users["name"]}"].result
   })
   depends_on = [vault_mount.secrets_engine]
 }
+#
