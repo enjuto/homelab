@@ -77,4 +77,3 @@ resource "vault_kv_secret_v2" "postgres_secrets_write" {
   })
   depends_on = [vault_mount.secrets_engine]
 }
-#
