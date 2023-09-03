@@ -1,20 +1,45 @@
+############################################################
+## Local variable to filter status ok and external dns  ####
+############################################################
+locals {
+  list_services = {
+    for service, details in var.services : service => details
+    if details.status
+  }
+}
+
+#######################################################################
+## Add CNAME records. This is needed to publish external services  ####
+#######################################################################
+resource "cloudflare_record" "cname_external_services" {
+  #for_each = toset(var.services)
+  for_each = { for k, v in local.list_services : k => v if v.dns_external }
+  name    = each.value.name
+  proxied = true
+  ttl     = 1
+  type    = "CNAME"
+  value   = var.domain
+  zone_id = data.cloudflare_zones.zones.zones[0].id
+}
+
 #######################################################################
 ## Add CNAME records. This is needed to publish internal services  ####
 #######################################################################
+resource "cloudflare_record" "cname_internal_pro_services" {
+  #for_each = toset(var.services)
+  for_each = { for k, v in local.list_services : k => v if v.dns_internal }
+  name    = "${each.value.name}.local"
+  proxied = true
+  ttl     = 1
+  type    = "CNAME"
+  value   = var.domain
+  zone_id = data.cloudflare_zones.zones.zones[0].id
+}
 
-#resource "cloudflare_record" "cname_records" {
-#  for_each = { for i, k in var.services : i => k if k.external }
-#  name         = each.value.name
-#  proxied      = each.value.proxied
-#  ttl          = 1
-#  type         = "CNAME"
-#  value        = var.domain
-#  zone_id      = data.cloudflare_zones.zones.zones[0].id
-#}
-
-resource "cloudflare_record" "cname_record_services" {
-  for_each = toset(var.services)
-  name    = each.value
+resource "cloudflare_record" "cname_internal_dev_services" {
+  #for_each = toset(var.services)
+  for_each = { for k, v in local.list_services : k => v if v.dns_internal }
+  name    = "${each.value.name}.dev-local"
   proxied = true
   ttl     = 1
   type    = "CNAME"
@@ -26,14 +51,17 @@ resource "cloudflare_record" "cname_record_services" {
 ## Add fixed A records. This is needed for the rest of them ####
 ################################################################
 
-resource "cloudflare_record" "a_record" {
-  name    = var.domain
-  proxied = true
-  ttl     = "1"
-  type    = "A"
-  #value   = "8.8.8.8" # - No need to add it, this is updated by batch service and change dynamically when the ISP change the public IP
-  zone_id = data.cloudflare_zones.zones.zones[0].id
-}
+### Si el record A se destruye cada vez que se crea se tiene que vovler a desplegar el job de cloudflare, sino se pierde 
+### la IP local de internet
+#resource "cloudflare_record" "a_record" {
+#  name    = var.domain
+#  proxied = true
+#  ttl     = "1"
+#  type    = "A"
+#  #value   = "8.8.8.8" # - No need to add it, this is updated by batch service and change dynamically when the ISP change the public IP
+#  zone_id = data.cloudflare_zones.zones.zones[0].id
+#}
+
 resource "cloudflare_record" "cname_record_www" {
   name    = "www"
   proxied = true
@@ -43,14 +71,15 @@ resource "cloudflare_record" "cname_record_www" {
   zone_id = data.cloudflare_zones.zones.zones[0].id
 }
 
-resource "cloudflare_record" "cname_record_local" {
-  name    = "*.local"
+resource "cloudflare_record" "cname_record_vpn" {
+  name    = "access"
   proxied = true
   ttl     = 1
   type    = "CNAME"
   value   = var.domain
   zone_id = data.cloudflare_zones.zones.zones[0].id
 }
+
 
 #########################################################
 ## Services by cloudflare to activate resend emails  ####
